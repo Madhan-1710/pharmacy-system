@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy Management System</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <header>
+        <h1>Pharmacy Management System</h1>
+        <p>Inventory management and customer billing</p>
+        <span id="version">Loading version...</span>
+    </header>
+
+    <main>
+        <section>
+            <h2>Add Medicine</h2>
+            <form id="medicine-form">
+                <label>Medicine name
+                    <input id="medicine-name" required placeholder="e.g. Vitamin C">
+                </label>
+                <label>Price (₹)
+                    <input id="medicine-price" type="number" min="0.01" step="0.01" required>
+                </label>
+                <label>Stock quantity
+                    <input id="medicine-stock" type="number" min="0" step="1" required>
+                </label>
+                <button type="submit">Add Item</button>
+            </form>
+            <p id="medicine-message" class="message"></p>
+        </section>
+
+        <section>
+            <h2>Medicine Inventory</h2>
+            <button id="refresh-medicines" type="button">Refresh Inventory</button>
+            <div id="inventory"></div>
+        </section>
+
+        <section>
+            <h2>Generate Bill</h2>
+            <form id="billing-form">
+                <label>Medicine
+                    <select id="bill-medicine" required></select>
+                </label>
+                <label>Quantity
+                    <input id="bill-quantity" type="number" min="1" step="1" value="1" required>
+                </label>
+                <button type="submit">Generate Bill</button>
+            </form>
+            <p id="billing-message" class="message"></p>
+            <div id="new-bill"></div>
+        </section>
+
+        <section>
+            <h2>View Bill</h2>
+            <form id="view-bill-form">
+                <label>Bill ID
+                    <input id="bill-id" type="number" min="1" step="1" required>
+                </label>
+                <button type="submit">View Bill</button>
+            </form>
+            <div id="bill-details"></div>
+        </section>
+    </main>
+
+    <footer>Agile Development Process and DevOps Lab</footer>
+    <script>
+        const money = value => "₹" + Number(value).toFixed(2);
+        const escapeHTML = value => String(value).replace(/[&<>"']/g, c => ({
+            "&": "&amp;", "<": "&lt;", ">": "&gt;",
+            '"': "&quot;", "'": "&#39;"
+        })[c]);
+
+        async function api(url, options = {}) {
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(options.headers || {})
+                }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Request failed");
+            return data;
+        }
+
+        async function loadMedicines() {
+            const medicines = await api("/api/medicines");
+            document.getElementById("inventory").innerHTML = `
+        <table>
+          <thead><tr><th>ID</th><th>Medicine</th><th>Price</th><th>Stock</th></tr></thead>
+          <tbody>${medicines.map(m => `
+            <tr>
+              <td>${m.id}</td><td>${escapeHTML(m.name)}</td>
+              <td>${money(m.price)}</td><td>${m.stock}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>`;
+
+            document.getElementById("bill-medicine").innerHTML =
+                medicines.map(m => `<option value="${m.id}" ${m.stock < 1 ? "disabled" : ""}>
+          ${escapeHTML(m.name)} — ${money(m.price)} (Stock: ${m.stock})
+        </option>`).join("");
+        }
+
+        function displayBill(bill, target) {
+            document.getElementById(target).innerHTML = `
+        <div class="bill">
+          <h3>Bill #${bill.id}</h3>
+          <p>Date: ${escapeHTML(bill.date)}</p>
+          <table>
+            <thead><tr><th>Medicine</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead>
+            <tbody>${bill.items.map(item => `
+              <tr><td>${escapeHTML(item.name)}</td>
+              <td>${item.quantity}</td><td>${money(item.price)}</td>
+              <td>${money(item.subtotal)}</td></tr>`).join("")}</tbody>
+          </table>
+          <h3>Total: ${money(bill.total)}</h3>
+        </div>`;
+        }
+
+        document.getElementById("medicine-form").addEventListener("submit", async event => {
+            event.preventDefault();
+            const message = document.getElementById("medicine-message");
+            try {
+                await api("/api/medicines", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        name: document.getElementById("medicine-name").value,
+                        price: document.getElementById("medicine-price").value,
+                        stock: document.getElementById("medicine-stock").value
+                    })
+                });
+                message.textContent = "Medicine added successfully.";
+                event.target.reset();
+                await loadMedicines();
+            } catch (error) {
+                message.textContent = error.message;
+            }
+        });
+
+        document.getElementById("billing-form").addEventListener("submit", async event => {
+            event.preventDefault();
+            const message = document.getElementById("billing-message");
+            try {
+                const result = await api("/api/bills", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        items: [{
+                            medicineId: document.getElementById("bill-medicine").value,
+                            quantity: document.getElementById("bill-quantity").value
+                        }]
+                    })
+                });
+                message.textContent = result.message;
+                displayBill(result.bill, "new-bill");
+                document.getElementById("bill-id").value = result.bill.id;
+                await loadMedicines();
+            } catch (error) {
+                message.textContent = error.message;
+            }
+        });
+
+        document.getElementById("view-bill-form").addEventListener("submit", async event => {
+            event.preventDefault();
+            try {
+                const bill = await api("/api/bills/" +
+                    encodeURIComponent(document.getElementById("bill-id").value));
+                displayBill(bill, "bill-details");
+            } catch (error) {
+                document.getElementById("bill-details").textContent = error.message;
+            }
+        });
+
+        document.getElementById("refresh-medicines").addEventListener("click", async () => {
+            try {
+                await loadMedicines();
+            } catch (error) {
+                document.getElementById("medicine-message").textContent = error.message;
+            }
+        });
+
+        api("/api/version")
+            .then(data => document.getElementById("version").textContent =
+                "Application version: " + data.version)
+            .catch(() => document.getElementById("version").textContent = "Version unavailable");
+
+        loadMedicines().catch(error => {
+            document.getElementById("medicine-message").textContent = error.message;
+        });
+    </script>
+</body>
+
+</html>

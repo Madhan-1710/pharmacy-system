@@ -1,0 +1,10 @@
+{
+    "name": "pharmacy-system",
+    "version": "1.0.0",
+    "description": "Pharmacy Management System for Agile DevOps Lab",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "test": "node --test"
+    }
+}
