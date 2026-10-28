@@ -146,6 +146,37 @@ const server = http.createServer((req, res) => {
         });
     }
 
+
+    if (req.url === "/api/sales-summary" && req.method === "GET") {
+        const totalBills = bills.length;
+
+        const totalSales = bills.reduce(
+            (sum, bill) => sum + bill.total,
+            0
+        );
+
+        const totalItemsSold = bills.reduce(
+            (sum, bill) =>
+                sum + bill.items.reduce(
+                    (itemSum, item) => itemSum + item.quantity,
+                    0
+                ),
+            0
+        );
+
+        const averageBillValue = totalBills > 0
+            ? totalSales / totalBills
+            : 0;
+
+        return sendJSON(200, {
+            totalSales: Number(totalSales.toFixed(2)),
+            totalBills,
+            totalItemsSold,
+            averageBillValue: Number(averageBillValue.toFixed(2))
+        });
+    }
+
+
     if (req.url === "/api/bills" && req.method === "GET") {
         return sendJSON(200, bills);
     }

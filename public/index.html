@@ -4,21 +4,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Pharmacy inventory management and billing system">
-    <title>Pharmacy Management System</title>
+    <meta name="description" content="Pharmacy inventory, billing, sales summary and billing history">
+    <title>Pharmacy Management System - v3</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
     <header>
         <h1>Pharmacy Management System</h1>
-        <p>Inventory management and customer billing</p>
+        <p>Inventory management, customer billing and sales analytics</p>
         <span id="version">Loading version...</span>
     </header>
 
     <main>
+        <!-- Add Medicine -->
         <section>
             <h2>Add Medicine</h2>
+
             <form id="medicine-form">
                 <label for="medicine-name">Medicine name</label>
                 <input id="medicine-name" required maxlength="100" placeholder="e.g. Vitamin C">
@@ -31,9 +33,11 @@
 
                 <button type="submit">Add Medicine</button>
             </form>
+
             <p id="medicine-message" class="message" role="status"></p>
         </section>
 
+        <!-- Medicine Inventory -->
         <section>
             <h2>Medicine Inventory</h2>
 
@@ -48,8 +52,10 @@
             <div id="inventory"></div>
         </section>
 
+        <!-- Generate Bill -->
         <section>
             <h2>Generate Bill</h2>
+
             <form id="billing-form">
                 <label for="bill-medicine">Medicine</label>
                 <select id="bill-medicine" required></select>
@@ -64,22 +70,77 @@
             <div id="new-bill"></div>
         </section>
 
+        <!-- View Individual Bill -->
         <section>
             <h2>View Bill</h2>
+
             <form id="view-bill-form">
                 <label for="bill-id">Bill ID</label>
                 <input id="bill-id" type="number" min="1" step="1" required placeholder="Enter bill ID">
 
                 <button type="submit">View Bill</button>
             </form>
+
             <div id="bill-details"></div>
+        </section>
+
+        <!-- Sales Summary -->
+        <section id="sales-summary-section">
+            <h2>Sales Summary</h2>
+            <p>Overview of sales and billing activity.</p>
+
+            <button id="refresh-sales" type="button">
+                Refresh Sales Summary
+            </button>
+
+            <p id="sales-message" class="message" role="status"></p>
+
+            <div class="sales-summary-grid">
+                <div class="summary-card">
+                    <h3>Total Sales</h3>
+                    <p id="total-sales">₹0.00</p>
+                </div>
+
+                <div class="summary-card">
+                    <h3>Total Bills</h3>
+                    <p id="total-bills">0</p>
+                </div>
+
+                <div class="summary-card">
+                    <h3>Items Sold</h3>
+                    <p id="total-items-sold">0</p>
+                </div>
+
+                <div class="summary-card">
+                    <h3>Average Bill</h3>
+                    <p id="average-bill">₹0.00</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Billing History -->
+        <section id="billing-history-section">
+            <h2>Billing History</h2>
+            <p>Review previously generated bills.</p>
+
+            <button id="refresh-billing-history" type="button">
+                Refresh Billing History
+            </button>
+
+            <p id="history-message" class="message" role="status"></p>
+            <div id="billing-history"></div>
         </section>
     </main>
 
-    <footer>Agile Development Process and DevOps Lab</footer>
+    <footer>
+        Agile Development Process and DevOps Lab
+    </footer>
 
     <script>
+        "use strict";
+
         const LOW_STOCK_LIMIT = 10;
+
         const money = value =>
             "\u20B9" + Number(value).toFixed(2);
 
@@ -94,6 +155,7 @@
 
         let allMedicines = [];
 
+        // API helper
         async function api(url, options = {}) {
             const response = await fetch(url, {
                 ...options,
@@ -106,23 +168,30 @@
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || "Request failed");
+                throw new Error(
+                    data.error || "Request failed"
+                );
             }
 
             return data;
         }
 
+        // Render medicine inventory and stock warnings
         function renderInventory() {
             const searchTerm = document
                 .getElementById("medicine-search")
-                .value.trim().toLowerCase();
+                .value.trim()
+                .toLowerCase();
 
             const filtered = allMedicines.filter(medicine =>
                 medicine.name.toLowerCase().includes(searchTerm)
             );
 
-            const inventory = document.getElementById("inventory");
-            const summary = document.getElementById("inventory-summary");
+            const inventory =
+                document.getElementById("inventory");
+
+            const summary =
+                document.getElementById("inventory-summary");
 
             const lowStockCount = allMedicines.filter(
                 medicine => medicine.stock < LOW_STOCK_LIMIT
@@ -152,6 +221,7 @@
                                 <th>Status</th>
                             </tr>
                         </thead>
+
                         <tbody>
                             ${filtered.map(medicine => {
                 const lowStock =
@@ -174,11 +244,13 @@
                     }
                                             </span>
                                         </td>
-                                    </tr>`;
+                                    </tr>
+                                `;
             }).join("")}
                         </tbody>
                     </table>
                 </div>
+
                 ${lowStockCount > 0
                     ? `<p class="warning-message">
                             Warning: ${lowStockCount} medicine(s)
@@ -189,35 +261,46 @@
             `;
         }
 
+        // Load inventory and update billing dropdown
         async function loadMedicines() {
             allMedicines = await api("/api/medicines");
+
             renderInventory();
 
-            const select = document.getElementById("bill-medicine");
+            const select =
+                document.getElementById("bill-medicine");
+
             const previousValue = select.value;
 
             select.innerHTML = allMedicines.map(medicine => `
-                <option value="${medicine.id}"
-                    ${medicine.stock < 1 ? "disabled" : ""}>
-                    ${escapeHTML(medicine.name)} — ${money(medicine.price)}
+                <option
+                    value="${medicine.id}"
+                    ${medicine.stock < 1 ? "disabled" : ""}
+                >
+                    ${escapeHTML(medicine.name)} —
+                    ${money(medicine.price)}
                     (Stock: ${medicine.stock})
                 </option>
             `).join("");
 
             if (allMedicines.some(
-                medicine => String(medicine.id) === previousValue
-                    && medicine.stock > 0
+                medicine =>
+                    String(medicine.id) === previousValue &&
+                    medicine.stock > 0
             )) {
                 select.value = previousValue;
             }
 
             document.getElementById("bill-quantity").value = 1;
+
             updateQuantityLimit();
         }
 
+        // Limit quantity to available stock
         function updateQuantityLimit() {
-            const selectedId =
-                Number(document.getElementById("bill-medicine").value);
+            const selectedId = Number(
+                document.getElementById("bill-medicine").value
+            );
 
             const medicine = allMedicines.find(
                 item => item.id === selectedId
@@ -235,11 +318,13 @@
             }
         }
 
+        // Display an individual bill
         function displayBill(bill, target) {
             document.getElementById(target).innerHTML = `
                 <div class="bill">
                     <h3>Bill #${bill.id}</h3>
                     <p>Date: ${escapeHTML(bill.date)}</p>
+
                     <div class="table-container">
                         <table>
                             <thead>
@@ -250,6 +335,7 @@
                                     <th>Subtotal</th>
                                 </tr>
                             </thead>
+
                             <tbody>
                                 ${bill.items.map(item => `
                                     <tr>
@@ -262,17 +348,13 @@
                             </tbody>
                         </table>
                     </div>
+
                     <h3>Total: ${money(bill.total)}</h3>
                 </div>
             `;
         }
 
-        document.getElementById("medicine-search")
-            .addEventListener("input", renderInventory);
-
-        document.getElementById("bill-medicine")
-            .addEventListener("change", updateQuantityLimit);
-
+        // Add medicine
         document.getElementById("medicine-form")
             .addEventListener("submit", async event => {
                 event.preventDefault();
@@ -280,20 +362,28 @@
                 const message =
                     document.getElementById("medicine-message");
 
-                const name =
-                    document.getElementById("medicine-name").value.trim();
+                const name = document
+                    .getElementById("medicine-name")
+                    .value.trim();
 
-                const price =
-                    Number(document.getElementById("medicine-price").value);
+                const price = Number(
+                    document.getElementById("medicine-price").value
+                );
 
-                const stock =
-                    Number(document.getElementById("medicine-stock").value);
+                const stock = Number(
+                    document.getElementById("medicine-stock").value
+                );
 
-                if (!name || !Number.isFinite(price) || price <= 0 ||
-                    !Number.isInteger(stock) || stock < 0) {
+                if (
+                    !name ||
+                    !Number.isFinite(price) ||
+                    price <= 0 ||
+                    !Number.isInteger(stock) ||
+                    stock < 0
+                ) {
                     message.textContent =
-                        "Enter a medicine name, positive price, " +
-                        "and a whole-number stock quantity of zero or more.";
+                        "Enter a medicine name, positive price, and " +
+                        "a whole-number stock quantity of zero or more.";
                     return;
                 }
 
@@ -307,12 +397,14 @@
                         result.message || "Medicine added successfully.";
 
                     event.target.reset();
+
                     await loadMedicines();
                 } catch (error) {
                     message.textContent = error.message;
                 }
             });
 
+        // Generate a bill
         document.getElementById("billing-form")
             .addEventListener("submit", async event => {
                 event.preventDefault();
@@ -320,22 +412,28 @@
                 const message =
                     document.getElementById("billing-message");
 
-                const medicineId =
-                    Number(document.getElementById("bill-medicine").value);
+                const medicineId = Number(
+                    document.getElementById("bill-medicine").value
+                );
 
-                const quantity =
-                    Number(document.getElementById("bill-quantity").value);
+                const quantity = Number(
+                    document.getElementById("bill-quantity").value
+                );
 
                 const medicine = allMedicines.find(
                     item => item.id === medicineId
                 );
 
                 if (!medicine) {
-                    message.textContent = "Please select a medicine.";
+                    message.textContent =
+                        "Please select an available medicine.";
                     return;
                 }
 
-                if (!Number.isInteger(quantity) || quantity < 1) {
+                if (
+                    !Number.isInteger(quantity) ||
+                    quantity < 1
+                ) {
                     message.textContent =
                         "Quantity must be a positive whole number.";
                     return;
@@ -364,19 +462,31 @@
                         result.bill.id;
 
                     await loadMedicines();
+
+                    await Promise.allSettled([
+                        loadSalesSummary(),
+                        loadBillingHistory()
+                    ]);
                 } catch (error) {
                     message.textContent = error.message;
                 }
             });
 
+        // View bill by ID
         document.getElementById("view-bill-form")
             .addEventListener("submit", async event => {
                 event.preventDefault();
 
-                const id = document.getElementById("bill-id").value;
-                const target = document.getElementById("bill-details");
+                const id =
+                    document.getElementById("bill-id").value;
 
-                if (!Number.isInteger(Number(id)) || Number(id) < 1) {
+                const target =
+                    document.getElementById("bill-details");
+
+                if (
+                    !Number.isInteger(Number(id)) ||
+                    Number(id) < 1
+                ) {
                     target.textContent = "Enter a valid bill ID.";
                     return;
                 }
@@ -392,18 +502,166 @@
                 }
             });
 
-        document.getElementById("refresh-medicines")
-            .addEventListener("click", async () => {
+        // Load sales summary from the backend
+        async function loadSalesSummary() {
+            const message =
+                document.getElementById("sales-message");
+
+            try {
+                const summary = await api("/api/sales-summary");
+
+                document.getElementById("total-sales").textContent =
+                    money(summary.totalSales);
+
+                document.getElementById("total-bills").textContent =
+                    summary.totalBills;
+
+                document.getElementById("total-items-sold").textContent =
+                    summary.totalItemsSold;
+
+                document.getElementById("average-bill").textContent =
+                    money(summary.averageBillValue);
+
+                message.textContent = "";
+            } catch (error) {
+                message.textContent =
+                    "Unable to load sales summary: " + error.message;
+            }
+        }
+
+        // Load billing history
+        async function loadBillingHistory() {
+            const message =
+                document.getElementById("history-message");
+
+            const container =
+                document.getElementById("billing-history");
+
+            try {
+                const bills = await api("/api/bills");
+
+                if (!Array.isArray(bills) || bills.length === 0) {
+                    container.innerHTML =
+                        "<p>No bills have been generated yet.</p>";
+
+                    message.textContent = "";
+                    return;
+                }
+
+                // Display newest bill first
+                const sortedBills = [...bills].reverse();
+
+                container.innerHTML = `
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Bill ID</th>
+                                    <th>Date</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                ${sortedBills.map(bill => `
+                                    <tr>
+                                        <td>${bill.id}</td>
+                                        <td>${escapeHTML(bill.date)}</td>
+                                        <td>${bill.items.reduce(
+                    (sum, item) =>
+                        sum + Number(item.quantity),
+                    0
+                )}</td>
+                                        <td>${money(bill.total)}</td>
+                                        <td>
+                                            <button
+                                                type="button"
+                                                class="view-history-bill"
+                                                data-bill-id="${bill.id}"
+                                            >
+                                                View Bill
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                message.textContent = "";
+            } catch (error) {
+                message.textContent =
+                    "Unable to load billing history: " + error.message;
+            }
+        }
+
+        // View a bill directly from billing history
+        document.getElementById("billing-history")
+            .addEventListener("click", async event => {
+                const button = event.target.closest(
+                    ".view-history-bill"
+                );
+
+                if (!button) {
+                    return;
+                }
+
+                const billId = button.dataset.billId;
+
                 try {
-                    await loadMedicines();
-                    document.getElementById("medicine-message")
-                        .textContent = "Inventory refreshed.";
+                    const bill = await api(
+                        "/api/bills/" + encodeURIComponent(billId)
+                    );
+
+                    displayBill(bill, "bill-details");
+
+                    document.getElementById("bill-id").value = bill.id;
+
+                    document.getElementById("bill-details")
+                        .scrollIntoView({
+                            behavior: "smooth",
+                            block: "start"
+                        });
                 } catch (error) {
-                    document.getElementById("medicine-message")
+                    document.getElementById("history-message")
                         .textContent = error.message;
                 }
             });
 
+        // Refresh inventory
+        document.getElementById("refresh-medicines")
+            .addEventListener("click", async () => {
+                const message =
+                    document.getElementById("medicine-message");
+
+                try {
+                    await loadMedicines();
+                    message.textContent = "Inventory refreshed.";
+                } catch (error) {
+                    message.textContent = error.message;
+                }
+            });
+
+        // Refresh sales summary
+        document.getElementById("refresh-sales")
+            .addEventListener("click", loadSalesSummary);
+
+        // Refresh billing history
+        document.getElementById("refresh-billing-history")
+            .addEventListener("click", loadBillingHistory);
+
+        // Search inventory as the user types
+        document.getElementById("medicine-search")
+            .addEventListener("input", renderInventory);
+
+        // Update maximum bill quantity when medicine changes
+        document.getElementById("bill-medicine")
+            .addEventListener("change", updateQuantityLimit);
+
+        // Display application version
         api("/api/version")
             .then(data => {
                 document.getElementById("version").textContent =
@@ -411,13 +669,25 @@
             })
             .catch(() => {
                 document.getElementById("version").textContent =
-                    "Application version: v2 (local development)";
+                    "Application version unavailable";
             });
 
-        loadMedicines().catch(error => {
-            document.getElementById("medicine-message")
-                .textContent = error.message;
-        });
+        // Initial page loading
+        async function initializeApp() {
+            const results = await Promise.allSettled([
+                loadMedicines(),
+                loadSalesSummary(),
+                loadBillingHistory()
+            ]);
+
+            if (results[0].status === "rejected") {
+                document.getElementById("medicine-message").textContent =
+                    "Unable to load inventory: " +
+                    results[0].reason.message;
+            }
+        }
+
+        initializeApp();
     </script>
 </body>
 
