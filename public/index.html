@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Pharmacy inventory management and billing system">
     <title>Pharmacy Management System</title>
     <link rel="stylesheet" href="/style.css">
 </head>
@@ -19,47 +20,56 @@
         <section>
             <h2>Add Medicine</h2>
             <form id="medicine-form">
-                <label>Medicine name
-                    <input id="medicine-name" required placeholder="e.g. Vitamin C">
-                </label>
-                <label>Price (₹)
-                    <input id="medicine-price" type="number" min="0.01" step="0.01" required>
-                </label>
-                <label>Stock quantity
-                    <input id="medicine-stock" type="number" min="0" step="1" required>
-                </label>
-                <button type="submit">Add Item</button>
+                <label for="medicine-name">Medicine name</label>
+                <input id="medicine-name" required maxlength="100" placeholder="e.g. Vitamin C">
+
+                <label for="medicine-price">Price (₹)</label>
+                <input id="medicine-price" type="number" min="0.01" step="0.01" required placeholder="10.00">
+
+                <label for="medicine-stock">Stock quantity</label>
+                <input id="medicine-stock" type="number" min="0" step="1" required placeholder="100">
+
+                <button type="submit">Add Medicine</button>
             </form>
-            <p id="medicine-message" class="message"></p>
+            <p id="medicine-message" class="message" role="status"></p>
         </section>
 
         <section>
             <h2>Medicine Inventory</h2>
-            <button id="refresh-medicines" type="button">Refresh Inventory</button>
+
+            <label for="medicine-search">Search medicine</label>
+            <input id="medicine-search" type="search" placeholder="Search by medicine name...">
+
+            <button id="refresh-medicines" type="button">
+                Refresh Inventory
+            </button>
+
+            <p id="inventory-summary"></p>
             <div id="inventory"></div>
         </section>
 
         <section>
             <h2>Generate Bill</h2>
             <form id="billing-form">
-                <label>Medicine
-                    <select id="bill-medicine" required></select>
-                </label>
-                <label>Quantity
-                    <input id="bill-quantity" type="number" min="1" step="1" value="1" required>
-                </label>
+                <label for="bill-medicine">Medicine</label>
+                <select id="bill-medicine" required></select>
+
+                <label for="bill-quantity">Quantity</label>
+                <input id="bill-quantity" type="number" min="1" step="1" value="1" required>
+
                 <button type="submit">Generate Bill</button>
             </form>
-            <p id="billing-message" class="message"></p>
+
+            <p id="billing-message" class="message" role="status"></p>
             <div id="new-bill"></div>
         </section>
 
         <section>
             <h2>View Bill</h2>
             <form id="view-bill-form">
-                <label>Bill ID
-                    <input id="bill-id" type="number" min="1" step="1" required>
-                </label>
+                <label for="bill-id">Bill ID</label>
+                <input id="bill-id" type="number" min="1" step="1" required placeholder="Enter bill ID">
+
                 <button type="submit">View Bill</button>
             </form>
             <div id="bill-details"></div>
@@ -67,12 +77,22 @@
     </main>
 
     <footer>Agile Development Process and DevOps Lab</footer>
+
     <script>
-        const money = value => "₹" + Number(value).toFixed(2);
-        const escapeHTML = value => String(value).replace(/[&<>"']/g, c => ({
-            "&": "&amp;", "<": "&lt;", ">": "&gt;",
-            '"': "&quot;", "'": "&#39;"
-        })[c]);
+        const LOW_STOCK_LIMIT = 10;
+        const money = value =>
+            "\u20B9" + Number(value).toFixed(2);
+
+        const escapeHTML = value =>
+            String(value).replace(/[&<>"']/g, character => ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;"
+            })[character]);
+
+        let allMedicines = [];
 
         async function api(url, options = {}) {
             const response = await fetch(url, {
@@ -82,114 +102,321 @@
                     ...(options.headers || {})
                 }
             });
+
             const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "Request failed");
+
+            if (!response.ok) {
+                throw new Error(data.error || "Request failed");
+            }
+
             return data;
         }
 
-        async function loadMedicines() {
-            const medicines = await api("/api/medicines");
-            document.getElementById("inventory").innerHTML = `
-        <table>
-          <thead><tr><th>ID</th><th>Medicine</th><th>Price</th><th>Stock</th></tr></thead>
-          <tbody>${medicines.map(m => `
-            <tr>
-              <td>${m.id}</td><td>${escapeHTML(m.name)}</td>
-              <td>${money(m.price)}</td><td>${m.stock}</td>
-            </tr>`).join("")}
-          </tbody>
-        </table>`;
+        function renderInventory() {
+            const searchTerm = document
+                .getElementById("medicine-search")
+                .value.trim().toLowerCase();
 
-            document.getElementById("bill-medicine").innerHTML =
-                medicines.map(m => `<option value="${m.id}" ${m.stock < 1 ? "disabled" : ""}>
-          ${escapeHTML(m.name)} — ${money(m.price)} (Stock: ${m.stock})
-        </option>`).join("");
+            const filtered = allMedicines.filter(medicine =>
+                medicine.name.toLowerCase().includes(searchTerm)
+            );
+
+            const inventory = document.getElementById("inventory");
+            const summary = document.getElementById("inventory-summary");
+
+            const lowStockCount = allMedicines.filter(
+                medicine => medicine.stock < LOW_STOCK_LIMIT
+            ).length;
+
+            summary.textContent =
+                `${allMedicines.length} medicines in inventory` +
+                (lowStockCount
+                    ? ` · ${lowStockCount} low-stock item(s)`
+                    : " · Stock levels look good");
+
+            if (filtered.length === 0) {
+                inventory.innerHTML =
+                    "<p>No medicines match your search.</p>";
+                return;
+            }
+
+            inventory.innerHTML = `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Medicine</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filtered.map(medicine => {
+                const lowStock =
+                    medicine.stock < LOW_STOCK_LIMIT;
+
+                return `
+                                    <tr>
+                                        <td>${medicine.id}</td>
+                                        <td>${escapeHTML(medicine.name)}</td>
+                                        <td>${money(medicine.price)}</td>
+                                        <td>${medicine.stock}</td>
+                                        <td>
+                                            <span class="${lowStock
+                        ? "stock-warning"
+                        : "stock-ok"
+                    }">
+                                                ${lowStock
+                        ? "Low Stock"
+                        : "In Stock"
+                    }
+                                            </span>
+                                        </td>
+                                    </tr>`;
+            }).join("")}
+                        </tbody>
+                    </table>
+                </div>
+                ${lowStockCount > 0
+                    ? `<p class="warning-message">
+                            Warning: ${lowStockCount} medicine(s)
+                            have fewer than ${LOW_STOCK_LIMIT} units.
+                           </p>`
+                    : ""
+                }
+            `;
+        }
+
+        async function loadMedicines() {
+            allMedicines = await api("/api/medicines");
+            renderInventory();
+
+            const select = document.getElementById("bill-medicine");
+            const previousValue = select.value;
+
+            select.innerHTML = allMedicines.map(medicine => `
+                <option value="${medicine.id}"
+                    ${medicine.stock < 1 ? "disabled" : ""}>
+                    ${escapeHTML(medicine.name)} — ${money(medicine.price)}
+                    (Stock: ${medicine.stock})
+                </option>
+            `).join("");
+
+            if (allMedicines.some(
+                medicine => String(medicine.id) === previousValue
+                    && medicine.stock > 0
+            )) {
+                select.value = previousValue;
+            }
+
+            document.getElementById("bill-quantity").value = 1;
+            updateQuantityLimit();
+        }
+
+        function updateQuantityLimit() {
+            const selectedId =
+                Number(document.getElementById("bill-medicine").value);
+
+            const medicine = allMedicines.find(
+                item => item.id === selectedId
+            );
+
+            const quantityInput =
+                document.getElementById("bill-quantity");
+
+            if (medicine) {
+                quantityInput.max = medicine.stock;
+                quantityInput.disabled = medicine.stock < 1;
+            } else {
+                quantityInput.removeAttribute("max");
+                quantityInput.disabled = true;
+            }
         }
 
         function displayBill(bill, target) {
             document.getElementById(target).innerHTML = `
-        <div class="bill">
-          <h3>Bill #${bill.id}</h3>
-          <p>Date: ${escapeHTML(bill.date)}</p>
-          <table>
-            <thead><tr><th>Medicine</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead>
-            <tbody>${bill.items.map(item => `
-              <tr><td>${escapeHTML(item.name)}</td>
-              <td>${item.quantity}</td><td>${money(item.price)}</td>
-              <td>${money(item.subtotal)}</td></tr>`).join("")}</tbody>
-          </table>
-          <h3>Total: ${money(bill.total)}</h3>
-        </div>`;
+                <div class="bill">
+                    <h3>Bill #${bill.id}</h3>
+                    <p>Date: ${escapeHTML(bill.date)}</p>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Medicine</th>
+                                    <th>Qty</th>
+                                    <th>Price</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${bill.items.map(item => `
+                                    <tr>
+                                        <td>${escapeHTML(item.name)}</td>
+                                        <td>${item.quantity}</td>
+                                        <td>${money(item.price)}</td>
+                                        <td>${money(item.subtotal)}</td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                    <h3>Total: ${money(bill.total)}</h3>
+                </div>
+            `;
         }
 
-        document.getElementById("medicine-form").addEventListener("submit", async event => {
-            event.preventDefault();
-            const message = document.getElementById("medicine-message");
-            try {
-                await api("/api/medicines", {
-                    method: "POST",
-                    body: JSON.stringify({
-                        name: document.getElementById("medicine-name").value,
-                        price: document.getElementById("medicine-price").value,
-                        stock: document.getElementById("medicine-stock").value
-                    })
-                });
-                message.textContent = "Medicine added successfully.";
-                event.target.reset();
-                await loadMedicines();
-            } catch (error) {
-                message.textContent = error.message;
-            }
-        });
+        document.getElementById("medicine-search")
+            .addEventListener("input", renderInventory);
 
-        document.getElementById("billing-form").addEventListener("submit", async event => {
-            event.preventDefault();
-            const message = document.getElementById("billing-message");
-            try {
-                const result = await api("/api/bills", {
-                    method: "POST",
-                    body: JSON.stringify({
-                        items: [{
-                            medicineId: document.getElementById("bill-medicine").value,
-                            quantity: document.getElementById("bill-quantity").value
-                        }]
-                    })
-                });
-                message.textContent = result.message;
-                displayBill(result.bill, "new-bill");
-                document.getElementById("bill-id").value = result.bill.id;
-                await loadMedicines();
-            } catch (error) {
-                message.textContent = error.message;
-            }
-        });
+        document.getElementById("bill-medicine")
+            .addEventListener("change", updateQuantityLimit);
 
-        document.getElementById("view-bill-form").addEventListener("submit", async event => {
-            event.preventDefault();
-            try {
-                const bill = await api("/api/bills/" +
-                    encodeURIComponent(document.getElementById("bill-id").value));
-                displayBill(bill, "bill-details");
-            } catch (error) {
-                document.getElementById("bill-details").textContent = error.message;
-            }
-        });
+        document.getElementById("medicine-form")
+            .addEventListener("submit", async event => {
+                event.preventDefault();
 
-        document.getElementById("refresh-medicines").addEventListener("click", async () => {
-            try {
-                await loadMedicines();
-            } catch (error) {
-                document.getElementById("medicine-message").textContent = error.message;
-            }
-        });
+                const message =
+                    document.getElementById("medicine-message");
+
+                const name =
+                    document.getElementById("medicine-name").value.trim();
+
+                const price =
+                    Number(document.getElementById("medicine-price").value);
+
+                const stock =
+                    Number(document.getElementById("medicine-stock").value);
+
+                if (!name || !Number.isFinite(price) || price <= 0 ||
+                    !Number.isInteger(stock) || stock < 0) {
+                    message.textContent =
+                        "Enter a medicine name, positive price, " +
+                        "and a whole-number stock quantity of zero or more.";
+                    return;
+                }
+
+                try {
+                    const result = await api("/api/medicines", {
+                        method: "POST",
+                        body: JSON.stringify({ name, price, stock })
+                    });
+
+                    message.textContent =
+                        result.message || "Medicine added successfully.";
+
+                    event.target.reset();
+                    await loadMedicines();
+                } catch (error) {
+                    message.textContent = error.message;
+                }
+            });
+
+        document.getElementById("billing-form")
+            .addEventListener("submit", async event => {
+                event.preventDefault();
+
+                const message =
+                    document.getElementById("billing-message");
+
+                const medicineId =
+                    Number(document.getElementById("bill-medicine").value);
+
+                const quantity =
+                    Number(document.getElementById("bill-quantity").value);
+
+                const medicine = allMedicines.find(
+                    item => item.id === medicineId
+                );
+
+                if (!medicine) {
+                    message.textContent = "Please select a medicine.";
+                    return;
+                }
+
+                if (!Number.isInteger(quantity) || quantity < 1) {
+                    message.textContent =
+                        "Quantity must be a positive whole number.";
+                    return;
+                }
+
+                if (quantity > medicine.stock) {
+                    message.textContent =
+                        `Only ${medicine.stock} unit(s) are available.`;
+                    return;
+                }
+
+                try {
+                    const result = await api("/api/bills", {
+                        method: "POST",
+                        body: JSON.stringify({
+                            items: [{ medicineId, quantity }]
+                        })
+                    });
+
+                    message.textContent =
+                        result.message || "Bill generated successfully.";
+
+                    displayBill(result.bill, "new-bill");
+
+                    document.getElementById("bill-id").value =
+                        result.bill.id;
+
+                    await loadMedicines();
+                } catch (error) {
+                    message.textContent = error.message;
+                }
+            });
+
+        document.getElementById("view-bill-form")
+            .addEventListener("submit", async event => {
+                event.preventDefault();
+
+                const id = document.getElementById("bill-id").value;
+                const target = document.getElementById("bill-details");
+
+                if (!Number.isInteger(Number(id)) || Number(id) < 1) {
+                    target.textContent = "Enter a valid bill ID.";
+                    return;
+                }
+
+                try {
+                    const bill = await api(
+                        "/api/bills/" + encodeURIComponent(id)
+                    );
+
+                    displayBill(bill, "bill-details");
+                } catch (error) {
+                    target.textContent = error.message;
+                }
+            });
+
+        document.getElementById("refresh-medicines")
+            .addEventListener("click", async () => {
+                try {
+                    await loadMedicines();
+                    document.getElementById("medicine-message")
+                        .textContent = "Inventory refreshed.";
+                } catch (error) {
+                    document.getElementById("medicine-message")
+                        .textContent = error.message;
+                }
+            });
 
         api("/api/version")
-            .then(data => document.getElementById("version").textContent =
-                "Application version: " + data.version)
-            .catch(() => document.getElementById("version").textContent = "Version unavailable");
+            .then(data => {
+                document.getElementById("version").textContent =
+                    "Application version: " + data.version;
+            })
+            .catch(() => {
+                document.getElementById("version").textContent =
+                    "Application version: v2 (local development)";
+            });
 
         loadMedicines().catch(error => {
-            document.getElementById("medicine-message").textContent = error.message;
+            document.getElementById("medicine-message")
+                .textContent = error.message;
         });
     </script>
 </body>

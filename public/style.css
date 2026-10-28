@@ -2,124 +2,210 @@
     box-sizing: border-box;
 }
 
+:root {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #1e293b;
+    background: #f1f5f9;
+}
+
 body {
     margin: 0;
-    background: #f2f5fa;
-    color: #17243a;
-    font-family: Arial, sans-serif;
+    line-height: 1.6;
 }
 
 header {
-    padding: 28px 20px;
-    background: #142c4e;
+    background: #172554;
     color: white;
+    padding: 28px 20px;
     text-align: center;
 }
 
 header h1 {
-    margin: 0 0 8px;
+    margin: 0 0 6px;
 }
 
 header p {
-    color: #d4e1f1;
+    margin: 0 0 12px;
+    color: #dbeafe;
 }
 
 #version {
     display: inline-block;
-    margin-top: 8px;
-    padding: 6px 12px;
+    padding: 4px 12px;
+    border: 1px solid #93c5fd;
     border-radius: 20px;
-    background: #24486f;
+    font-size: 0.9rem;
 }
 
 main {
-    max-width: 1000px;
-    margin: 24px auto;
-    padding: 0 16px;
+    width: min(1100px, 94%);
+    margin: 28px auto;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+    align-items: start;
 }
 
 section {
-    padding: 20px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 3px 12px #152b4812;
     min-width: 0;
+    background: white;
+    padding: 22px;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgb(15 23 42 / 7%);
 }
 
 h2 {
     margin-top: 0;
-    font-size: 20px;
-}
-
-form {
-    display: grid;
-    gap: 12px;
+    color: #172554;
+    font-size: 1.3rem;
 }
 
 label {
-    display: grid;
-    gap: 6px;
-    font-size: 14px;
-    font-weight: bold;
+    display: block;
+    margin: 14px 0 6px;
+    font-weight: 600;
 }
 
 input,
 select {
+    display: block;
     width: 100%;
-    padding: 10px;
+    min-width: 0;
+    padding: 11px 12px;
     border: 1px solid #cbd5e1;
-    border-radius: 6px;
+    border-radius: 7px;
+    background: white;
+    color: #1e293b;
     font: inherit;
 }
 
+input:focus,
+select:focus {
+    outline: 2px solid #93c5fd;
+    border-color: #2563eb;
+}
+
 button {
-    padding: 11px 14px;
+    margin-top: 14px;
+    padding: 11px 16px;
     border: 0;
-    border-radius: 6px;
-    background: #1767c2;
+    border-radius: 7px;
+    background: #2563eb;
     color: white;
-    font-weight: bold;
+    font: inherit;
+    font-weight: 600;
     cursor: pointer;
 }
 
 button:hover {
-    background: #104f99;
+    background: #1d4ed8;
+}
+
+button:disabled,
+input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+#refresh-medicines {
+    margin-bottom: 12px;
 }
 
 .message {
-    color: #1767a5;
     overflow-wrap: anywhere;
+    color: #334155;
+    font-size: 0.95rem;
+}
+
+#inventory-summary {
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.table-container {
+    width: 100%;
+    overflow-x: auto;
 }
 
 table {
     width: 100%;
-    margin-top: 14px;
+    margin-top: 12px;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 0.92rem;
 }
 
 th,
 td {
-    padding: 9px 6px;
+    padding: 10px;
     border-bottom: 1px solid #e2e8f0;
     text-align: left;
-    overflow-wrap: anywhere;
 }
 
 th {
-    background: #edf3fa;
+    background: #eff6ff;
+    color: #1e3a8a;
+}
+
+.stock-warning,
+.stock-ok {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.stock-warning {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.stock-ok {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.warning-message {
+    padding: 10px;
+    border-left: 4px solid #dc2626;
+    background: #fef2f2;
+    color: #991b1b;
 }
 
 .bill {
-    margin-top: 14px;
+    margin-top: 18px;
+    padding: 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
     overflow-wrap: anywhere;
 }
 
+.bill h3 {
+    color: #172554;
+}
+
 footer {
-    padding: 20px;
+    margin-top: 32px;
+    padding: 18px;
+    background: #e2e8f0;
+    color: #475569;
     text-align: center;
-    color: #64748b;
+}
+
+@media (max-width: 700px) {
+    main {
+        grid-template-columns: 1fr;
+        width: 92%;
+        margin: 18px auto;
+    }
+
+    section {
+        padding: 17px;
+    }
+
+    header h1 {
+        font-size: 1.6rem;
+    }
 }
